@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, app, request, jsonify
 from pymongo import MongoClient
 from ai_agent import analyze_vitals
 
