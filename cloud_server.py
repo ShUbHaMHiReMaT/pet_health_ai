@@ -1,16 +1,17 @@
 import os
-from flask import Flask, app, request, jsonify
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from pymongo import MongoClient
 from ai_agent import analyze_vitals
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+app = Flask(__name__)
+CORS(app)
 
-# Connect to MongoDB Atlas
+# MongoDB (optional)
 client = MongoClient("YOUR_MONGODB_CONNECTION_STRING")
 db = client["pet_health"]
 collection = db["vitals"]
+
 
 @app.route("/")
 def home():
@@ -21,6 +22,7 @@ def home():
 def upload_data():
 
     data = request.json
+
     temp = data["temperature"]
     hr = data["heart_rate"]
     pet_id = data["pet_id"]
@@ -34,9 +36,12 @@ def upload_data():
         "analysis": result
     }
 
-    #collection.insert_one(record)
+    # Uncomment if using MongoDB
+    # collection.insert_one(record)
 
     return jsonify(result)
 
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
