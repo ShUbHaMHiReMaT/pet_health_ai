@@ -1,6 +1,12 @@
 flask
 flask-cors
+gunicorn
 numpy
+pandas
 scikit-learn
+scipy
 joblib
 pymongo
+dnspython
+matplotlib
+seaborn
