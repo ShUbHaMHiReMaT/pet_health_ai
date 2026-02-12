@@ -6,8 +6,9 @@ from collections import deque
 # Load trained model
 model = joblib.load("model.pkl")
 
-# Memory for last 12 readings (1 hour if 5 min interval)
+# Store last 12 readings (~6 mins if 30 sec cycle)
 history = deque(maxlen=12)
+
 
 def calculate_baseline():
     temps = [h["temperature"] for h in history]
@@ -23,10 +24,12 @@ def calculate_baseline():
         np.std(hrs)
     )
 
+
 def calculate_trend(values):
     if len(values) < 3:
         return 0
     return values[-1] - values[0]
+
 
 def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
 
@@ -53,9 +56,9 @@ def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
     reasons = []
     recommendations = []
 
-    # -----------------------------
+    # ------------------------------------------------
     # HARD MEDICAL SAFETY THRESHOLDS
-    # -----------------------------
+    # ------------------------------------------------
     if temp > 40 or temp < 35:
         risk_score += 60
         reasons.append("Dangerous body temperature")
@@ -66,9 +69,9 @@ def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
         reasons.append("Dangerous heart rate")
         recommendations.append("Check for cardiac distress immediately")
 
-    # -----------------------------
-    # BREED SIZE BASED NORMAL RANGES
-    # -----------------------------
+    # ------------------------------------------------
+    # BREED SIZE BASED HEART RATE
+    # ------------------------------------------------
     normal_hr_min = 60
     normal_hr_max = 140
 
@@ -86,14 +89,17 @@ def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
         reasons.append("Heart rate abnormal for breed size")
         recommendations.append("Monitor heart rate for 30 minutes")
 
+    # ------------------------------------------------
+    # NORMAL BODY TEMPERATURE RANGE
+    # ------------------------------------------------
     if temp < 38.3 or temp > 39.2:
         risk_score += 20
         reasons.append("Temperature outside normal range")
         recommendations.append("Keep pet hydrated and recheck temperature")
 
-    # -----------------------------
+    # ------------------------------------------------
     # BASELINE DEVIATION
-    # -----------------------------
+    # ------------------------------------------------
     if temp_z > 2:
         risk_score += 20
         reasons.append("Temperature deviating from baseline")
@@ -102,9 +108,9 @@ def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
         risk_score += 20
         reasons.append("Heart rate deviating from baseline")
 
-    # -----------------------------
+    # ------------------------------------------------
     # TREND DETECTION
-    # -----------------------------
+    # ------------------------------------------------
     if temp_trend > 0.8:
         risk_score += 15
         reasons.append("Sustained temperature rise")
@@ -113,14 +119,29 @@ def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
         risk_score += 15
         reasons.append("Rapid heart rate increase")
 
-    # -----------------------------
+    # ------------------------------------------------
     # ML ANOMALY
-    # -----------------------------
+    # ------------------------------------------------
     if anomaly_flag == -1:
         risk_score += 20
         reasons.append("AI anomaly detected")
 
-    # Normalize
+    # ------------------------------------------------
+    # FALSE DATA / INCONSISTENCY CHECK
+    # ------------------------------------------------
+    inconsistency_flag = False
+
+    if len(history) >= 12:
+        recent = list(history)[-12:]
+        temps = [r["temperature"] for r in recent]
+
+        if max(temps) - min(temps) > 8:
+            inconsistency_flag = True
+            recommendations.append("Possible incorrect breed/age input detected")
+
+    # ------------------------------------------------
+    # FINAL SCORE
+    # ------------------------------------------------
     risk_score = min(risk_score, 100)
     health_index = 100 - risk_score
 
@@ -130,17 +151,6 @@ def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
         level = "WARNING"
     else:
         level = "STABLE"
-
-    # -----------------------------
-    # FALSE DATA MONITORING
-    # -----------------------------
-    inconsistency_flag = False
-    if len(history) >= 12:
-        recent = list(history)[-12:]
-        temps = [r["temperature"] for r in recent]
-        if max(temps) - min(temps) > 8:
-            inconsistency_flag = True
-            recommendations.append("Possible incorrect breed/age input detected")
 
     return {
         "temperature": temp,
@@ -154,75 +164,4 @@ def analyze_vitals(temp, hr, weight=None, age=None, breed_group=None):
         "reasons": reasons,
         "recommendations": recommendations,
         "inconsistency_flag": inconsistency_flag
-    }
-
-    
-    # -----------------------------
-    # HARD MEDICAL SAFETY THRESHOLDS
-    # -----------------------------
-    if temp > 40 or temp < 35:
-     risk_score += 60
-    reasons.append("Dangerous body temperature")
-
-    if hr > 160 or hr < 40:
-     risk_score += 40
-    reasons.append("Dangerous heart rate")
-   # -----------------------------
-
-    # Deviation strength
-    if temp_z > 2:
-        risk_score += 25
-        reasons.append("Temperature deviating from baseline")
-
-    if hr_z > 2:
-        risk_score += 25
-        reasons.append("Heart rate deviating from baseline")
-
-    # Sustained trend
-    if temp_trend > 0.8:
-        risk_score += 20
-        reasons.append("Sustained temperature rise")
-
-    if hr_trend > 20:
-        risk_score += 15
-        reasons.append("Rapid heart rate increase")
-        # Deviation strength
-        
-    if temp_z > 2:
-     risk_score += 25
-     reasons.append("Temperature deviating from baseline")
-
-    if hr_z > 2:
-     risk_score += 25
-     reasons.append("Heart rate deviating from baseline")
-
-
-    # ML anomaly
-    if anomaly_flag == -1:
-        risk_score += 20
-        reasons.append("AI anomaly detected")
-
-    # Normalize
-    risk_score = min(risk_score, 100)
-
-    # Health Stability Index (inverse of risk)
-    health_index = 100 - risk_score
-
-    if risk_score >= 70:
-        level = "CRITICAL"
-    elif risk_score >= 40:
-        level = "WARNING"
-    else:
-        level = "STABLE"
-
-    return {
-        "temperature": temp,
-        "heart_rate": hr,
-        "baseline_temp": round(baseline_temp,2),
-        "baseline_hr": round(baseline_hr,2),
-        "risk_score": risk_score,
-        "health_index": health_index,
-        "risk_level": level,
-        "anomaly_score": float(anomaly_score),
-        "reasons": reasons
     }

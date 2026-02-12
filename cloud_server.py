@@ -88,7 +88,14 @@ def get_latest():
         hr = float(last.get("heart_rate", 0))
 
         # 🔥 RUN AI HERE
-        result = analyze_vitals(temp, hr)
+        result = analyze_vitals(
+        temp,
+        hr,
+        weight=data.get("weight"),
+        age=data.get("age"),
+        breed_group=data.get("breed_group", "medium")
+)
+
 
         return jsonify(result)
 
