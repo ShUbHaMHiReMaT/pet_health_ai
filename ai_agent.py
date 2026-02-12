@@ -55,6 +55,18 @@ def analyze_vitals(temp, hr):
 
     risk_score = 0
     reasons = []
+    
+    # -----------------------------
+    # HARD MEDICAL SAFETY THRESHOLDS
+    # -----------------------------
+    if temp > 40 or temp < 35:
+     risk_score += 60
+    reasons.append("Dangerous body temperature")
+
+    if hr > 160 or hr < 40:
+     risk_score += 40
+    reasons.append("Dangerous heart rate")
+   # -----------------------------
 
     # Deviation strength
     if temp_z > 2:
@@ -73,6 +85,16 @@ def analyze_vitals(temp, hr):
     if hr_trend > 20:
         risk_score += 15
         reasons.append("Rapid heart rate increase")
+        # Deviation strength
+        
+    if temp_z > 2:
+     risk_score += 25
+     reasons.append("Temperature deviating from baseline")
+
+    if hr_z > 2:
+     risk_score += 25
+     reasons.append("Heart rate deviating from baseline")
+
 
     # ML anomaly
     if anomaly_flag == -1:
