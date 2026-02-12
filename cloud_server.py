@@ -43,16 +43,45 @@ def upload_data():
 @app.route("/latest", methods=["GET"])
 def get_latest():
     import pandas as pd
+    import os
 
-    df = pd.read_csv("dataset.csv")
-    last = df.iloc[-1]
+    try:
+        if not os.path.exists("dataset.csv"):
+            return jsonify({
+                "temperature": 0,
+                "heart_rate": 0,
+                "health_index": 0,
+                "risk_level": "NO DATA"
+            })
 
-    return jsonify({
-        "temperature": float(last["temperature"]),
-        "heart_rate": float(last["heart_rate"]),
-        "health_index": 85,
-        "risk_level": last["status"]
-    })
+        df = pd.read_csv("dataset.csv")
+
+        if df.empty:
+            return jsonify({
+                "temperature": 0,
+                "heart_rate": 0,
+                "health_index": 0,
+                "risk_level": "NO DATA"
+            })
+
+        last = df.iloc[-1]
+
+        return jsonify({
+            "temperature": float(last["temperature"]),
+            "heart_rate": float(last["heart_rate"]),
+            "health_index": 85,
+            "risk_level": str(last["status"]).upper()
+        })
+
+    except Exception as e:
+        print("ERROR:", e)
+        return jsonify({
+            "temperature": 0,
+            "heart_rate": 0,
+            "health_index": 0,
+            "risk_level": "SERVER ERROR"
+        })
+
 
 
 
