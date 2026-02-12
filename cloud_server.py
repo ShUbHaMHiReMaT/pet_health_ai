@@ -77,17 +77,13 @@ def get_latest():
 
         last = df.iloc[-1]
 
-        # Safely read columns
-        temperature = float(last.get("temperature", 0))
-        heart_rate = float(last.get("heart_rate", 0))
-        status = str(last.get("status", "STABLE")).upper()
+        temp = float(last.get("temperature", 0))
+        hr = float(last.get("heart_rate", 0))
 
-        return jsonify({
-            "temperature": temperature,
-            "heart_rate": heart_rate,
-            "health_index": 85,
-            "risk_level": status
-        })
+        # 🔥 RUN AI HERE
+        result = analyze_vitals(temp, hr)
+
+        return jsonify(result)
 
     except Exception as e:
         print("LATEST ERROR:", e)
@@ -97,6 +93,7 @@ def get_latest():
             "health_index": 0,
             "risk_level": "SERVER ERROR"
         }), 500
+
 
 
 # ===============================
