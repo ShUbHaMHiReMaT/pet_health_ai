@@ -1,52 +1,63 @@
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from pymongo import MongoClient
 from ai_agent import analyze_vitals
+import pandas as pd
 
 app = Flask(__name__)
 CORS(app)
 
-# MongoDB (optional)
-client = MongoClient("YOUR_MONGODB_CONNECTION_STRING")
-db = client["pet_health"]
-collection = db["vitals"]
-
+# ===============================
+# ROOT ROUTE
+# ===============================
 
 @app.route("/")
 def home():
-    return "Pet Health AI Cloud Server Running 🚀"
+    return jsonify({"message": "Pet Health AI Cloud Server Running 🚀"})
 
+
+# ===============================
+# UPLOAD ROUTE (ESP32 → AI)
+# ===============================
 
 @app.route("/upload", methods=["POST"])
 def upload_data():
 
-    data = request.json
+    try:
+        data = request.get_json()
 
-    temp = data["temperature"]
-    hr = data["heart_rate"]
-    pet_id = data["pet_id"]
+        if not data:
+            return jsonify({"error": "No JSON received"}), 400
 
-    result = analyze_vitals(temp, hr)
+        temp = float(data.get("temperature", 0))
+        hr = float(data.get("heart_rate", 0))
+        pet_id = data.get("pet_id", "unknown")
 
-    record = {
-        "pet_id": pet_id,
-        "temperature": temp,
-        "heart_rate": hr,
-        "analysis": result
-    }
+        result = analyze_vitals(temp, hr)
 
-    # Uncomment if using MongoDB
-    # collection.insert_one(record)
+        return jsonify(result)
 
-    return jsonify(result)
+    except Exception as e:
+        print("UPLOAD ERROR:", e)
+        return jsonify({
+            "temperature": 0,
+            "heart_rate": 0,
+            "health_index": 0,
+            "risk_level": "SERVER ERROR"
+        }), 500
+
+
+# ===============================
+# LATEST DATA ROUTE (APP → SERVER)
+# ===============================
+
 @app.route("/latest", methods=["GET"])
 def get_latest():
-    import pandas as pd
-    import os
 
     try:
-        if not os.path.exists("dataset.csv"):
+        file_path = os.path.join(os.getcwd(), "dataset.csv")
+
+        if not os.path.exists(file_path):
             return jsonify({
                 "temperature": 0,
                 "heart_rate": 0,
@@ -54,7 +65,7 @@ def get_latest():
                 "risk_level": "NO DATA"
             })
 
-        df = pd.read_csv("dataset.csv")
+        df = pd.read_csv(file_path)
 
         if df.empty:
             return jsonify({
@@ -66,24 +77,31 @@ def get_latest():
 
         last = df.iloc[-1]
 
+        # Safely read columns
+        temperature = float(last.get("temperature", 0))
+        heart_rate = float(last.get("heart_rate", 0))
+        status = str(last.get("status", "STABLE")).upper()
+
         return jsonify({
-            "temperature": float(last["temperature"]),
-            "heart_rate": float(last["heart_rate"]),
+            "temperature": temperature,
+            "heart_rate": heart_rate,
             "health_index": 85,
-            "risk_level": str(last["status"]).upper()
+            "risk_level": status
         })
 
     except Exception as e:
-        print("ERROR:", e)
+        print("LATEST ERROR:", e)
         return jsonify({
             "temperature": 0,
             "heart_rate": 0,
             "health_index": 0,
             "risk_level": "SERVER ERROR"
-        })
+        }), 500
 
 
-
+# ===============================
+# START SERVER
+# ===============================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
