@@ -40,6 +40,20 @@ def upload_data():
     # collection.insert_one(record)
 
     return jsonify(result)
+@app.route("/latest", methods=["GET"])
+def get_latest():
+    import pandas as pd
+
+    df = pd.read_csv("dataset.csv")
+    last = df.iloc[-1]
+
+    return jsonify({
+        "temperature": float(last["temperature"]),
+        "heart_rate": float(last["heart_rate"]),
+        "health_index": 85,
+        "risk_level": last["status"]
+    })
+
 
 
 if __name__ == "__main__":
