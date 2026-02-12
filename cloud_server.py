@@ -33,7 +33,14 @@ def upload_data():
         hr = float(data.get("heart_rate", 0))
         pet_id = data.get("pet_id", "unknown")
 
-        result = analyze_vitals(temp, hr)
+        result = analyze_vitals(
+    temp,
+    hr,
+    weight=data.get("weight"),
+    age=data.get("age"),
+    breed_group=data.get("breed_group")
+)
+
 
         return jsonify(result)
 
