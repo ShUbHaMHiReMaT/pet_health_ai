@@ -10,3 +10,4 @@ pymongo
 dnspython
 matplotlib
 seaborn
+torch
