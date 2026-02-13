@@ -26,21 +26,32 @@ def upload_data():
     try:
         data = request.get_json()
 
-        if not data:
-            return jsonify({"error": "No JSON received"}), 400
-
         temp = float(data.get("temperature", 0))
         hr = float(data.get("heart_rate", 0))
         pet_id = data.get("pet_id", "unknown")
 
         result = analyze_vitals(
-    temp,
-    hr,
-    weight=data.get("weight"),
-    age=data.get("age"),
-    breed_group=data.get("breed_group")
-)
+            temp,
+            hr,
+            weight=data.get("weight"),
+            age=data.get("age"),
+            breed_group=data.get("breed_group")
+        )
 
+        # 🔥 APPEND TO dataset.csv
+        file_path = os.path.join(os.getcwd(), "dataset.csv")
+
+        new_row = pd.DataFrame([{
+            "timestamp": pd.Timestamp.now(),
+            "temperature": temp,
+            "heart_rate": hr,
+            "status": result["risk_level"]
+        }])
+
+        if os.path.exists(file_path):
+            new_row.to_csv(file_path, mode='a', header=False, index=False)
+        else:
+            new_row.to_csv(file_path, index=False)
 
         return jsonify(result)
 
@@ -52,6 +63,7 @@ def upload_data():
             "health_index": 0,
             "risk_level": "SERVER ERROR"
         }), 500
+
 
 
 # ===============================
