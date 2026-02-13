@@ -3,77 +3,128 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from ai_agent import analyze_vitals
 import pandas as pd
-from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
 
-DATA_FILE = "dataset.csv"
+# ===============================
+# ROOT ROUTE
+# ===============================
 
 @app.route("/")
 def home():
     return jsonify({"message": "Pet Health AI Cloud Server Running 🚀"})
 
+
 # ===============================
-# UPLOAD ROUTE (APP → AI)
+# UPLOAD ROUTE (ESP32 → AI)
 # ===============================
 
 @app.route("/upload", methods=["POST"])
 def upload_data():
+
     try:
         data = request.get_json()
 
-        if not data:
-            return jsonify({"error": "No JSON received"}), 400
-
         temp = float(data.get("temperature", 0))
         hr = float(data.get("heart_rate", 0))
-        weight = data.get("weight")
-        age = data.get("age")
-        breed_group = data.get("breed_group", "medium")
+        pet_id = data.get("pet_id", "unknown")
 
-        # 🚨 Reject invalid sensor values
-        if temp == 0 or hr == 0:
-            return jsonify({
-                "error": "Invalid sensor values",
-                "health_index": 0,
-                "risk_level": "NO SENSOR DATA"
-            }), 400
-
-        # 🔥 RUN AI
         result = analyze_vitals(
             temp,
             hr,
-            weight=weight,
-            age=age,
-            breed_group=breed_group
+            weight=data.get("weight"),
+            age=data.get("age"),
+            breed_group=data.get("breed_group")
         )
 
-        # 🔥 STORE IN CSV
-        row = {
-            "timestamp": datetime.now(),
+        # 🔥 APPEND TO dataset.csv
+        file_path = os.path.join(os.getcwd(), "dataset.csv")
+
+        new_row = pd.DataFrame([{
+            "timestamp": pd.Timestamp.now(),
             "temperature": temp,
             "heart_rate": hr,
-            "risk_level": result["risk_level"]
-        }
+            "status": result["risk_level"]
+        }])
 
-        if os.path.exists(DATA_FILE):
-            df = pd.read_csv(DATA_FILE)
-            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+        if os.path.exists(file_path):
+            new_row.to_csv(file_path, mode='a', header=False, index=False)
         else:
-            df = pd.DataFrame([row])
-
-        df.to_csv(DATA_FILE, index=False)
+            new_row.to_csv(file_path, index=False)
 
         return jsonify(result)
 
     except Exception as e:
-        print("SERVER ERROR:", e)
+        print("UPLOAD ERROR:", e)
         return jsonify({
+            "temperature": 0,
+            "heart_rate": 0,
             "health_index": 0,
             "risk_level": "SERVER ERROR"
         }), 500
 
+
+
+# ===============================
+# LATEST DATA ROUTE (APP → SERVER)
+# ===============================
+
+@app.route("/latest", methods=["GET"])
+def get_latest():
+
+    try:
+        file_path = os.path.join(os.getcwd(), "dataset.csv")
+
+        if not os.path.exists(file_path):
+            return jsonify({
+                "temperature": 0,
+                "heart_rate": 0,
+                "health_index": 0,
+                "risk_level": "NO DATA"
+            })
+
+        df = pd.read_csv(file_path)
+
+        if df.empty:
+            return jsonify({
+                "temperature": 0,
+                "heart_rate": 0,
+                "health_index": 0,
+                "risk_level": "NO DATA"
+            })
+
+        last = df.iloc[-1]
+
+        temp = float(last.get("temperature", 0))
+        hr = float(last.get("heart_rate", 0))
+
+        # 🔥 RUN AI HERE
+        result = analyze_vitals(
+        temp,
+        hr,
+        weight=data.get("weight"),
+        age=data.get("age"),
+        breed_group=data.get("breed_group", "medium")
+)
+
+
+        return jsonify(result)
+
+    except Exception as e:
+        print("LATEST ERROR:", e)
+        return jsonify({
+            "temperature": 0,
+            "heart_rate": 0,
+            "health_index": 0,
+            "risk_level": "SERVER ERROR"
+        }), 500
+
+
+
+# ===============================
+# START SERVER
+# ===============================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
